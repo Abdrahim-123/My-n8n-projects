@@ -1,0 +1,684 @@
+{
+  "name": "Automated_customer_service",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=🚨 **HIGH URGENCY TICKET** 🚨\n\n**Subject:** {{ $('Receive Email').item.json.subject }}\n**From:** {{ $('Receive Email').item.json.from }}\n\n**AI Analysis:**\n• Category: {{ $('Urgency Filter').item.json.category }}\n• Urgency Score: {{ $('Urgency Filter').item.json.urgency }} /10\n• Sentiment: {{ $('Urgency Filter').item.json.sentiment }}\n\n**Message:**\n{{ $('Receive Email').item.json.textPlain }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        2704,
+        -448
+      ],
+      "id": "68518354-b823-46e5-b3eb-18c8ac6baf30",
+      "name": "Discord",
+      "webhookId": "094bd61f-e244-4fd0-bac8-7de2a9469d38",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "GDmG6ftmFffp83Ge",
+          "name": "Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "YOUR_NOTION_DATABASE_ID",
+          "mode": "list",
+          "cachedResultName": "N8N",
+          "cachedResultUrl": "https://www.notion.so/YOUR_NOTION_DATABASE_ID"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Ticket Subjects|title",
+              "title": "={{ $('Receive Email').item.json.subject }}"
+            },
+            {
+              "key": "Category|select",
+              "selectValue": "={{ $('Clean Data').item.json.category }}"
+            },
+            {
+              "key": "Urgency|number",
+              "numberValue": "={{ $('Clean Data').item.json.urgency }}"
+            },
+            {
+              "key": "Sentiment|select",
+              "selectValue": "={{ $('Clean Data').item.json.sentiment }}"
+            },
+            {
+              "key": "Draft Reply|rich_text",
+              "textContent": "={{ $json.draft_reply }}"
+            },
+            {
+              "key": "Date|date",
+              "date": "={{ $('Receive Email').item.json.date }}"
+            },
+            {
+              "key": "Message|rich_text",
+              "textContent": "={{ $('Receive Email').item.json.textPlain }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "In progress"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        3264,
+        -272
+      ],
+      "id": "01f8d18e-f3b5-4b04-a95c-c30b91de1e7a",
+      "name": "Create a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "dmB7icVuN3ZfksGD",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cb1a3977-40a6-4f8e-9adf-09d5db225cd4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "517c43c3-897b-4ba2-a9ae-7897d16c43c3",
+      "name": "Duplicate found?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_URL/rest/v1/rpc/match_tickets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query_embedding\": {{ JSON.stringify($('Vector Generator').item.json) }},\n  \"match_threshold\": 0.85,\n  \"match_count\": 1\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        832,
+        0
+      ],
+      "id": "5cb800f6-a87f-461b-a64c-ae578ff53db0",
+      "name": "Duplicate Detector",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aU8Xfnjzkaknqchy",
+          "name": "Header Auth account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-mpnet-base-v2/pipeline/feature-extraction",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"inputs\": [{{ JSON.stringify($('Receive Email').item.json.textPlain )}}],\n  \"options\": {\n    \"wait_for_model\": true\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "b109b107-6eb0-463f-be66-422d8d24332d",
+      "name": "Vector Generator",
+      "credentials": {
+        "huggingFaceApi": {
+          "id": "Pd72aERjchXV985L",
+          "name": "HuggingFaceApi account 2"
+        },
+        "httpHeaderAuth": {
+          "id": "7RTt59wXZTQBDs0Q",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "51efbb9a-6f46-43aa-8204-a5f89dd25b35",
+              "name": "draft_reply",
+              "value": "={{ $json.draft_reply }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2704,
+        -672
+      ],
+      "id": "0d8fa339-a7b6-4201-a130-f3b30c953c44",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_URL/rest/v1/rpc/match_documents",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "YOUR_SUPABASE_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query_embedding\": {{ JSON.stringify($('Vector Generator').item.json) }},\n  \"match_threshold\": 0.45,\n  \"match_count\": 1\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1248,
+        96
+      ],
+      "id": "7e9ef5cc-ad38-43a6-a6c9-1e080b40e65b",
+      "name": "Knowledge Search",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aU8Xfnjzkaknqchy",
+          "name": "Header Auth account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Clean Data').item.json.urgency }}",
+                    "rightValue": 7,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    },
+                    "id": "d27cdca6-ac91-4591-a22e-fa98c36bec8d"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "High Urgency"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9a1305ff-f776-4c98-9186-392ffbefd624",
+                    "leftValue": "={{ $('Clean Data').item.json.urgency }}",
+                    "rightValue": 7,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Normal Priority"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2192,
+        -64
+      ],
+      "id": "f29d686d-8c40-4569-b394-eb426082b732",
+      "name": "Urgency Filter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        0
+      ],
+      "id": "3911a29b-3354-4181-9d2d-7b0764661989",
+      "name": "Receive Email",
+      "credentials": {
+        "imap": {
+          "id": "PFp41ukKXHBzGcGG",
+          "name": "IMAP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a helpful customer support assistant. Analyze the incoming ticket. Return ONLY a JSON object (no markdown, no extra text) with keys: 'category' (Bug, Question, Feature), 'urgency' (1-10), and 'sentiment' (Positive, Neutral, Negative).\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.textPlain) }}\n    }\n  ],\n  \"temperature\": 0\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "dc250974-1ed5-4a69-aca5-1fedd50e8e4c",
+      "name": "Analyze and Classify",
+      "credentials": {
+        "groqApi": {
+          "id": "pXGZGXLFuvahu9PA",
+          "name": "Groq account"
+        },
+        "httpHeaderAuth": {
+          "id": "h9eXgymXPlas3U5W",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the messy response from the previous node\nconst response = $input.first().json;\n\n// Extract the \"content\" text which is the AI's answer\nconst aiContent = response.choices[0].message.content;\n\n// Parse that text string into a real JSON object\nconst cleanData = JSON.parse(aiContent);\n\n// Return the clean data\nreturn cleanData;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "5dbd347f-6747-4d86-bf46-b15bea1cfc5b",
+      "name": "Clean Data"
+    },
+    {
+      "parameters": {
+        "tableId": "tickets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $('Clean Data').item.json.category }}"
+            },
+            {
+              "fieldId": "urgency",
+              "fieldValue": "={{ $('Clean Data').item.json.urgency }}"
+            },
+            {
+              "fieldId": "sentiment",
+              "fieldValue": "={{ $('Clean Data').item.json.sentiment }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('Receive Email').item.json.textPlain }}"
+            },
+            {
+              "fieldId": "draft_reply",
+              "fieldValue": "Requires Human Intervention"
+            },
+            {
+              "fieldId": "embedding",
+              "fieldValue": "={{ $('Vector Generator').item.json}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2944,
+        -304
+      ],
+      "id": "55ae99f1-4816-48f9-a0f6-d9b659cba3e8",
+      "name": "Save to Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "WuKewqJy63fWAnJh",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "tickets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $('Clean Data').item.json.category }}"
+            },
+            {
+              "fieldId": "urgency",
+              "fieldValue": "={{ $('Clean Data').item.json.urgency }}"
+            },
+            {
+              "fieldId": "sentiment",
+              "fieldValue": "={{ $('Clean Data').item.json.sentiment }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('Receive Email').item.json.textPlain }}"
+            },
+            {
+              "fieldId": "draft_reply",
+              "fieldValue": "={{ $json.choices[0].message.content }}"
+            },
+            {
+              "fieldId": "embedding",
+              "fieldValue": "={{ $('Vector Generator').item.json}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2928,
+        -128
+      ],
+      "id": "a7bc69c9-f9d2-4cc6-9fbc-0c3f70e9cc71",
+      "name": "Save to Supabase1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "WuKewqJy63fWAnJh",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a helpful customer support agent. Use the provided KNOWLEDGE BASE context to answer the user's email accurately and professionally. If the context is empty or irrelevant, answer based on general best practices.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(\"CONTEXT FROM KNOWLEDGE BASE:\\n\" + ($('Knowledge Search').item.json.content || \"No relevant documents found.\") + \"\\n\\nUSER EMAIL:\\n\" + $('Receive Email').item.json.textPlain) }}\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2464,
+        16
+      ],
+      "id": "01d91927-9aaa-4774-9df2-acb41386fc85",
+      "name": "Draft Reply Generator",
+      "credentials": {
+        "groqApi": {
+          "id": "pXGZGXLFuvahu9PA",
+          "name": "Groq account"
+        },
+        "httpHeaderAuth": {
+          "id": "h9eXgymXPlas3U5W",
+          "name": "Header Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Discord": {
+      "main": [
+        []
+      ]
+    },
+    "Create a database page": {
+      "main": [
+        []
+      ]
+    },
+    "Duplicate found?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Knowledge Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate Detector": {
+      "main": [
+        [
+          {
+            "node": "Duplicate found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Generator": {
+      "main": [
+        [
+          {
+            "node": "Duplicate Detector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Knowledge Search": {
+      "main": [
+        [
+          {
+            "node": "Urgency Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgency Filter": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Discord",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Draft Reply Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receive Email": {
+      "main": [
+        [
+          {
+            "node": "Analyze and Classify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze and Classify": {
+      "main": [
+        [
+          {
+            "node": "Clean Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Data": {
+      "main": [
+        [
+          {
+            "node": "Vector Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase1": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Reply Generator": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "6733d9da-0906-46b8-a639-eddf46ac3b2d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "generated_instance_id"
+  },
+  "id": "WNvTx1QWVJmEftMx",
+  "tags": []
+}

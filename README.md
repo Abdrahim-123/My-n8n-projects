@@ -228,6 +228,40 @@ Add the following credentials:
 
 ---
 
+## 📸 Visual Walkthrough
+
+### 1. The Orchestrator (n8n Workflow)
+This is the "brain" of the operation. The green execution lines show the path taken for our test:
+1.  **Analysis:** The email was classified as "High Urgency" (Bug).
+2.  **Routing:** The `Urgency Filter` routed it to the **top path** (Discord Alert), skipping the AI auto-draft to prevent hallucinations on sensitive issues.
+
+![n8n Workflow Execution](assets/1-n8n-workflow.png)
+
+### 2. The Trigger (Email Ingestion)
+We sent a test email simulating a frustrated customer reporting a "double charge" and "login issues" (500 error).
+*(Note: The system acts on this immediately via IMAP)*.
+
+![Email Test Screenshot](assets/2-email-test.png)
+
+### 3. The Memory (Supabase Vector Store)
+The email is converted into a vector embedding and stored in Supabase.
+Notice the **Urgency: 9** and **Sentiment: Negative** fields extracted by the AI.
+
+![Supabase Database View](assets/3-supabase-view.png)
+
+### 4. The Triage (Discord Alerts)
+Because the urgency score was **9/10**, the system bypassed the standard draft queue and immediately triggered a **High Urgency Alert** in Discord for the support team.
+
+![Discord Alert Screenshot](assets/4-discord-alert.png)
+
+### 5. The Dashboard (Notion Sync)
+Finally, the ticket is synced to Notion.
+**Smart Safety Feature:** Notice that for this high-urgency ticket, the *Draft Reply* column is set to **"Requires Human Intervention"** rather than an AI-generated text. This ensures a human reviews critical billing issues personally.
+
+![Notion Database Dashboard](assets/5-notion-dashboard.png)
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome. Ideas include:
@@ -240,7 +274,5 @@ Contributions are welcome. Ideas include:
 Fork the repository and submit a pull request.
 
 ---
-
-## MIT License
 
 
